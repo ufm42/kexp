@@ -77,6 +77,11 @@ int init_loader(char *elfldr_ptr, size_t size) {
       if (!phdr[i].p_memsz || !phdr[i].p_filesz)
         continue;
 
+      if (phdr[i].p_vaddr + phdr[i].p_filesz > loader_ctx.size) {
+        notify("ELF segment out of bounds !!");
+        munmap(loader_ctx.base, loader_ctx.size);
+        return -1;
+      }
       memcpy(loader_ctx.base + phdr[i].p_vaddr, elfldr_ptr + phdr[i].p_offset,
              phdr[i].p_filesz);
     }
