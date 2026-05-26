@@ -6,8 +6,15 @@
 
 DATA loader_ctx_t loader_ctx;
 
-int init_loader(char *elf_ptr, size_t size) {
+int init_loader(const char *elf_ptr, size_t size) {
   if (elf_ptr == 0) {
+    log("defaults to embedded elfldr...");
+
+    elf_ptr = &_elf_start;
+    size = &_elf_end - &_elf_start;
+  }
+
+  if (size == 0) {
     log("empty elf !!");
     return -1;
   }

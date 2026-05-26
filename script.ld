@@ -7,5 +7,8 @@ SECTIONS
         *(.text*)
         *(.rodata*)
         *(.data*)
+        _elf_start = .;
+        *(.elfldr)
+        _elf_end = .;
     }
 }

@@ -55,7 +55,7 @@ typedef struct {
   int master_pipe[2];
   int victim_pipe[2];
   uintptr_t allproc;
-  char *elfldr_ptr;
+  const char *elfldr_ptr;
   size_t elfldr_size;
 } payload_args_t;
 

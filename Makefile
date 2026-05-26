@@ -1,6 +1,7 @@
 CC := clang-18
 
 BIN := kexp.bin
+ELFLDR := elfldr.elf
 
 SRC_DIR := src
 BUILD_DIR := build
@@ -46,7 +47,21 @@ $(BUILD_DIR)/syscalls.o: $(BUILD_DIR)/syscalls.S
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
-	
+
+ifneq ($(wildcard $(ELFLDR)),)
+
+$(BUILD_DIR)/elfldr.o: $(ELFLDR) | $(BUILD_DIR)
+	objcopy \
+		-I binary \
+		-O elf64-x86-64 \
+		-B i386:x86-64 \
+		--rename-section .data=.elfldr,alloc,load,readonly,data,contents \
+		$< $@
+
+OBJS += $(BUILD_DIR)/elfldr.o
+
+endif
+
 $(BUILD_DIR)/$(BIN): $(OBJS) script.ld $(BUILD_DIR)/syscalls.ld
 	$(CC) $(CFLAGS) $(OBJS) -o $@ -Tscript.ld -T$(BUILD_DIR)/syscalls.ld
 
