@@ -251,6 +251,12 @@ int init_loader_args() {
 }
 
 int run_loader() {
+
+#if defined(KEXP_NO_PTHREADS) && KEXP_NO_PTHREADS == 1
+  log("calling elfldr entry directly @ %#lx", loader_ctx.entry);
+  int (*entry)(void *) = (int (*)(void *))loader_ctx.entry;
+  entry((void *)&loader_ctx.args);
+# else
   uintptr_t pthread;
   uint32_t pthread_id;
 
@@ -267,6 +273,7 @@ int run_loader() {
     notify("failed to join thread !!");
     return -1;
   }
+#endif
 
   notify("elfldr returned %#lx !!", *(uint64_t *)loader_ctx.args.ret);
 
