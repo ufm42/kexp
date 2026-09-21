@@ -4,7 +4,7 @@
 #include "loader.h"
 #include "logger.h"
 
-__attribute__((section(".entry"))) int main(payload_args_t *args) {
+__attribute__((section(".entry"))) int main(kexp_args_t *args) {
   if (args == 0)
     return -1;
 
@@ -32,11 +32,6 @@ __attribute__((section(".entry"))) int main(payload_args_t *args) {
 
   if (init_loader(args->elfldr_ptr, args->elfldr_size) != 0) {
     notify("unable to init elfldr !!");
-    return -1;
-  }
-
-  if (init_loader_args() != 0) {
-    notify("unable to init elfldr args !!");
     return -1;
   }
 

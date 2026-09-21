@@ -13,12 +13,35 @@
 #define CPU_PDE_PS_MASK 1
 #define CPU_PG_PHYS_FRAME 0x000ffffffffff000
 #define CPU_PG_PS_FRAME 0x000fffffffe00000
-#define CPU_PDE_FIELD(pde, field) ((pde >> CPU_PDE_##field##_SHIFT) & CPU_PDE_##field##_MASK)
+#define CPU_PDE_FIELD(pde, field)                                              \
+  ((pde >> CPU_PDE_##field##_SHIFT) & CPU_PDE_##field##_MASK)
+
+typedef struct {
+  int master_pipe[2];
+  int victim_pipe[2];
+  pipebuf_t pipebuf;
+} karw_ctx_t;
+
+typedef struct {
+  uintptr_t cb3;
+  uintptr_t cr3;
+  uintptr_t mmio;
+  uintptr_t dmap;
+  uintptr_t kmdp;
+  uintptr_t ktext;
+  uintptr_t ksize;
+  uintptr_t kdata;
+  uintptr_t kaslr;
+  uintptr_t softc;
+  uintptr_t krodata;
+  uintptr_t allproc;
+  uintptr_t fdt_ofiles;
+} kaddrs_t;
 
 kaddrs_t kaddrs;
 karw_ctx_t karw_ctx;
 
-void init_karw(payload_args_t *args);
+void init_karw(kexp_args_t *args);
 void init_kaddrs(uintptr_t allproc);
 void find_dyn_segment();
 void find_hash_table();

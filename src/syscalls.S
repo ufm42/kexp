@@ -8,7 +8,6 @@ syscall:
   jb fail
   ret
 
-.global fail
 fail:
   mov rax, -1
   mov rdx, -1

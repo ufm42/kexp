@@ -24,11 +24,11 @@
        size = kexp.length
    )
 
-5. Allocate structure for payload arguments
-   payload_args = allocate(0x28 bytes)
+5. Allocate structure for kexp arguments
+   kexp_args = allocate(0x28 bytes)
 
-6. Fill payload argument structure
-    payload_args:
+6. Fill kexp argument structure
+    kexp_args:
       +0x00 = master_pipe[0]
       +0x04 = master_pipe[1]
       +0x08 = victim_pipe[0]
@@ -42,7 +42,7 @@
         thread_handle_out = pthread_addr_out,
         attributes = NULL,
         start_routine = entry_addr,
-        argument = payload_args
+        argument = kexp_args
     )
 
 8. Wait for thread to finish
@@ -58,7 +58,10 @@
 10. Log return value
     print(ret)
 
-11. Free return value storage
+11. Free kexp argument storage
+    free(kexp_args)
+
+12. Free return value storage
     free(ret_addr)
 ```
 

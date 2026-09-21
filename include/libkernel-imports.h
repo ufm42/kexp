@@ -5,7 +5,3 @@ API(void, sceKernelSendNotificationRequest,
 API(int, sysctlbyname,
     (const char *name, void *oldp, size_t *oldlenp, const void *newp,
      size_t newlen))
-API(int, pthread_create,
-    (pthread_t *restrict thread, const pthread_attr_t *restrict attr,
-     void *(*start_routine)(void *), void *restrict arg))
-API(int, pthread_join, (pthread_t thread, void **value_ptr))

@@ -5,16 +5,16 @@
 #include "libkernel-imports.h"
 #undef API
 
-static inline void *resolve_symbol(SceKernelModule handle, const char *name) {
-  void *addrp;
-  if (dlsym(handle, name, &addrp))
+static inline void resolve_symbol(SceKernelModule handle, const char *name,
+                                  void **addr) {
+  if (dlsym(handle, name, addr)) {
     __builtin_trap();
-  return addrp;
+  }
 }
 
 void init_libkernel_api() {
 #define API(ret, name, args)                                                   \
-  name = (ret(*) args)resolve_symbol(LIBKERNEL_HANDLE, #name);
+  resolve_symbol(LIBKERNEL_HANDLE, #name, (void **)&name);
 
 #include "libkernel-imports.h"
 
@@ -22,8 +22,7 @@ void init_libkernel_api() {
 }
 
 void init_libc_api() {
-#define API(ret, name, args)                                                   \
-  name = (ret(*) args)resolve_symbol(LIBC_HANDLE, #name);
+#define API(ret, name, args) resolve_symbol(LIBC_HANDLE, #name, (void **)&name);
 
 #include "libc-imports.h"
 

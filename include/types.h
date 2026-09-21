@@ -53,7 +53,7 @@ typedef struct {
   uintptr_t allproc;
   char *elfldr_ptr;
   size_t elfldr_size;
-} payload_args_t;
+} kexp_args_t;
 
 typedef struct {
   uint32_t cnt;
@@ -62,27 +62,5 @@ typedef struct {
   uint32_t size;
   char *buffer;
 } pipebuf_t;
-
-typedef struct {
-  int master_pipe[2];
-  int victim_pipe[2];
-  pipebuf_t pipebuf;
-} karw_ctx_t;
-
-typedef struct {
-  uintptr_t cb3;
-  uintptr_t cr3;
-  uintptr_t mmio;
-  uintptr_t dmap;
-  uintptr_t kmdp;
-  uintptr_t ktext;
-  uintptr_t ksize;
-  uintptr_t kdata;
-  uintptr_t kaslr;
-  uintptr_t softc;
-  uintptr_t krodata;
-  uintptr_t allproc;
-  uintptr_t fdt_ofiles;
-} kaddrs_t;
 
 #endif

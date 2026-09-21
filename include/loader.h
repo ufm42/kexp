@@ -29,21 +29,20 @@ typedef struct {
   int *rwpair;
   uintptr_t pipe_f_data;
   uintptr_t kernel_data_base;
-  uint64_t *ret;
-} loader_args_t;
+  int* payloadout;
+} elfldr_args_t;
+
+typedef int entry_t(elfldr_args_t *args);
 
 typedef struct {
   size_t size;
   uintptr_t base;
-  uintptr_t entry;
-  uintptr_t args_base;
-  loader_args_t args;
+  entry_t *entry;
 } loader_ctx_t;
 
 loader_ctx_t loader_ctx;
 
 int init_loader(char *elfldr_ptr, size_t size);
-int init_loader_args();
 int run_loader();
 
 #endif

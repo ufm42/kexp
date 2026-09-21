@@ -136,86 +136,74 @@ int init_loader(char *ptr, size_t size) {
   return 0;
 }
 
-int init_loader_args() {
+int run_loader() {
+  char in6_pktinfo_buf[0x14];
+  char cmsghdr_buf[0x18];
+  int rwpair[2];
+  int rwpipe[2];
+  int payloadout;
+
+  log("run loader started...");
+
   log("init loader args started...");
 
-  uint8_t prot = PROT_READ | PROT_WRITE;
-  int flags = MAP_ANONYMOUS | MAP_PRIVATE;
-
-  loader_ctx.args_base = mmap(0, PAGE_SIZE, prot, flags, -1, 0);
-  if (loader_ctx.args_base == UINTPTR_MAX) {
-    log("unable to map memory with size %#x prot: %#x flags: %#x !!", PAGE_SIZE,
-        prot, flags);
-    return -1;
-  }
-
-  log("loader_ctx { args_base: %#lx }", loader_ctx.args_base);
-
-  int master_sock = socket(AF_INET6, SOCK_DGRAM, 0);
-  if (master_sock == -1) {
+  rwpair[0] = socket(AF_INET6, SOCK_DGRAM, 0);
+  if (rwpair[0] == -1) {
     log("unable to create master socket !!");
     return -1;
   }
 
-  int victim_sock = socket(AF_INET6, SOCK_DGRAM, 0);
-  if (victim_sock == -1) {
+  rwpair[1] = socket(AF_INET6, SOCK_DGRAM, 0);
+  if (rwpair[1] == -1) {
     log("unable to create victim socket !!");
     return -1;
   }
 
-  *(uint32_t *)(loader_ctx.args_base + 0x00) = 0x14;
-  *(uint32_t *)(loader_ctx.args_base + 0x04) = IPPROTO_IPV6;
-  *(uint32_t *)(loader_ctx.args_base + 0x08) = IPV6_TCLASS;
+  memset(cmsghdr_buf, 0, sizeof(cmsghdr_buf));
 
-  if (setsockopt(master_sock, IPPROTO_IPV6, IPV6_2292PKTOPTIONS,
-                 loader_ctx.args_base, 0x18) == -1) {
+  uint32_t *cmsghdr = (uint32_t *)cmsghdr_buf;
+
+  cmsghdr[0] = 0x14;         // cmsg_len
+  cmsghdr[1] = IPPROTO_IPV6; // cmsg_level
+  cmsghdr[2] = IPV6_TCLASS;  // cmsg_type
+
+  if (setsockopt(rwpair[0], IPPROTO_IPV6, IPV6_2292PKTOPTIONS, cmsghdr_buf,
+                 sizeof(cmsghdr_buf)) == -1) {
     log("unable to set socket option IPV6_2292PKTOPTIONS !!");
     return -1;
   }
 
-  memset(loader_ctx.args_base, 0, 0x14);
+  memset(in6_pktinfo_buf, 0, sizeof(in6_pktinfo_buf));
 
-  if (setsockopt(victim_sock, IPPROTO_IPV6, IPV6_PKTINFO, loader_ctx.args_base,
-                 0x14) == -1) {
+  if (setsockopt(rwpair[1], IPPROTO_IPV6, IPV6_PKTINFO, in6_pktinfo_buf,
+                 sizeof(in6_pktinfo_buf)) == -1) {
     log("unable to set socket option IPV6_PKTINFO !!");
     return -1;
   }
 
-  fhold(fget(master_sock));
-  fhold(fget(victim_sock));
+  fhold(fget(rwpair[0]));
+  fhold(fget(rwpair[1]));
 
-  uintptr_t master_in6p_outputopts = get_in6p_outputopts(master_sock);
-  uintptr_t slave_in6p_outputopts = get_in6p_outputopts(victim_sock);
+  uintptr_t master_in6p_outputopts = get_in6p_outputopts(rwpair[0]);
+  uintptr_t victim_in6p_outputopts = get_in6p_outputopts(rwpair[1]);
 
-  uintptr_t slave_ip6po_pktinfo = slave_in6p_outputopts + 0x10;
+  uintptr_t victim_ip6po_pktinfo = victim_in6p_outputopts + 0x10;
 
   // pktopts.ip6po_pktinfo = &pktopts.ip6po_pktinfo
-  kwrite(master_in6p_outputopts + 0x10, &slave_ip6po_pktinfo,
-         sizeof(slave_ip6po_pktinfo));
+  kwrite(master_in6p_outputopts + 0x10, &victim_ip6po_pktinfo,
+         sizeof(victim_ip6po_pktinfo));
 
   uint32_t tclass = 0x13370000;
 
   // pktopts.ip6po_tclass = 0x13370000
   kwrite(master_in6p_outputopts + 0xc0, &tclass, sizeof(tclass));
 
-  int pipe_fd[2];
-
-  if (pipe2(pipe_fd, 0) == -1) {
+  if (pipe2(rwpipe, 0) == -1) {
     log("unable to pipe2 !!");
     return -1;
   }
 
-  int *rwpipe = loader_ctx.args_base + 0x100;
-  int *rwpair = loader_ctx.args_base + 0x200;
-  uint64_t *ret_addr = loader_ctx.args_base + 0x300;
-
-  rwpipe[0] = pipe_fd[0];
-  rwpipe[1] = pipe_fd[1];
-
-  rwpair[0] = master_sock;
-  rwpair[1] = victim_sock;
-
-  uintptr_t rpipe_fp = fget(pipe_fd[0]);
+  uintptr_t rpipe_fp = fget(rwpipe[0]);
   uintptr_t rpipe_f_data;
 
   kread(&rpipe_f_data, rpipe_fp, sizeof(rpipe_f_data));
@@ -232,57 +220,42 @@ int init_loader_args() {
     return -1;
   }
 
-  loader_ctx.args.syscall_wrapper = kernel_getpid;
-  loader_ctx.args.rwpipe = rwpipe;
-  loader_ctx.args.rwpair = rwpair;
-  loader_ctx.args.pipe_f_data = rpipe_f_data;
-  loader_ctx.args.kernel_data_base = kernel_data_base;
-  loader_ctx.args.ret = ret_addr;
+  elfldr_args_t elfldr_args = {
+      .syscall_wrapper = kernel_getpid,
+      .rwpipe = rwpipe,
+      .rwpair = rwpair,
+      .pipe_f_data = rpipe_f_data,
+      .kernel_data_base = kernel_data_base,
+      .payloadout = &payloadout
+  };
 
-  log("loader_ctx.args { syscall_wrapper: %#lx rwpipe: [%i, %i] rwpair: [%i, "
-      "%i] pipe_f_data: %#lx kernel_data_base: %#lx ret: %lx }",
-      loader_ctx.args.syscall_wrapper, loader_ctx.args.rwpipe[0],
-      loader_ctx.args.rwpipe[1], loader_ctx.args.rwpair[0],
-      loader_ctx.args.rwpair[1], loader_ctx.args.pipe_f_data,
-      loader_ctx.args.kernel_data_base, loader_ctx.args.ret);
+  log("elfldr_args { syscall_wrapper: %#lx rwpipe: [%i, %i] rwpair: [%i, "
+      "%i] pipe_f_data: %#lx kernel_data_base: %#lx }",
+      elfldr_args.syscall_wrapper, elfldr_args.rwpipe[0], elfldr_args.rwpipe[1],
+      elfldr_args.rwpair[0], elfldr_args.rwpair[1], elfldr_args.pipe_f_data,
+      elfldr_args.kernel_data_base);
 
   log("init loader args completed !!");
-  return 0;
-}
 
-int run_loader() {
-  uintptr_t pthread;
-  uint32_t pthread_id;
+  int ret = loader_ctx.entry(&elfldr_args);
 
-  if (pthread_create(&pthread, 0, loader_ctx.entry, (void *)&loader_ctx.args)) {
-    log("failed to create elfldr thread !!");
-    return -1;
-  }
-
-  pthread_id = *(uint32_t *)pthread;
-
-  notify("Created elfldr thread with id %i !!", pthread_id);
-
-  if (pthread_join(pthread, 0)) {
-    notify("failed to join thread !!");
-    return -1;
-  }
-
-  notify("elfldr returned %#lx !!", *(uint64_t *)loader_ctx.args.ret);
+  log("elfldr payloadout %i !!", payloadout);
+  log("elfldr returned %i !!", ret);
 
   log("loader args cleanup started...");
 
   munmap(loader_ctx.base, loader_ctx.size);
 
-  remove_pktinfo_from_so(loader_ctx.args.rwpair[0]);
+  remove_pktinfo_from_so(rwpair[0]);
 
-  close(loader_ctx.args.rwpair[0]);
-  close(loader_ctx.args.rwpair[1]);
-  close(loader_ctx.args.rwpipe[0]);
-  close(loader_ctx.args.rwpipe[1]);
-
-  munmap(loader_ctx.args_base, PAGE_SIZE);
+  close(rwpair[0]);
+  close(rwpair[1]);
+  close(rwpipe[0]);
+  close(rwpipe[1]);
 
   log("loader args cleanup completed !!");
+
+  log("run loader completed !!");
+
   return 0;
 }

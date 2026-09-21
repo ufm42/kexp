@@ -15,12 +15,13 @@ OBJS := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS)) $(BUILD_DIR)/syscall
 
 all: $(BUILD_DIR)/$(BIN)
 
-_ := $(shell mkdir -p $(BUILD_DIR))
+$(BUILD_DIR):
+	mkdir -p $@
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.S
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.S | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 	
 $(BUILD_DIR)/$(BIN): $(OBJS) script.ld
